@@ -1,0 +1,24 @@
+*{scrollbar-width:thin;scrollbar-color:#3b625a #10201f}
+*::-webkit-scrollbar{width:8px;height:8px}
+*::-webkit-scrollbar-track{background:#10201f;border-radius:99px}
+*::-webkit-scrollbar-thumb{background:#3b625a;border-radius:99px;border:2px solid #10201f}
+*::-webkit-scrollbar-thumb:hover{background:#5c9a86}
+.brand{background:transparent;text-align:left;padding:0}
+.signout{background:transparent;color:var(--muted);font-size:11px;padding:8px 4px}
+.signout:hover{color:var(--mint)}
+.tracker-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding:14px 16px;border:1px solid var(--line);border-radius:8px;background:#10201f;color:var(--mint);font-size:12px}
+.tracker-toggle span{display:flex;align-items:center;gap:8px}
+.tracker-toggle:hover{background:#16312d;border-color:#4a8b72}
+.tracker-panel{margin-top:10px}
+.tracker-panel form{display:flex;gap:7px}
+.tracker-panel input{margin:0;min-width:0}
+.tracker-panel .primary{flex:none}
+.login-modal{max-width:440px}
+.login-modal .modal-head{padding-bottom:20px}
+.login-modal form{padding-top:20px}
+.login-modal .modal-foot{margin-top:5px}
+.form-panel{max-height:calc(100vh - 170px);overflow:auto}
+.review-form textarea{line-height:1.42}
+.candidate-main{padding-top:48px;padding-bottom:55px}
+.candidate-hero{margin-bottom:45px}
+.page{padding-top:40px;padding-bottom:55px}

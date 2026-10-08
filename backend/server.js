@@ -15,6 +15,9 @@ const uploadDir = path.join(dataDir, 'uploads', 'resumes');
 fs.mkdirSync(uploadDir, { recursive: true });
 
 const db = new Database(dbPath);
+const adminSessions = new Set();
+const ADMIN_EMAIL = 'system@atenxion.ai';
+const ADMIN_PASSWORD = '123456';
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.exec(`
@@ -100,6 +103,12 @@ const applicationView = (row, includeDossier = true) => ({
   decisionReason: row.decision_reason, decisionFeedback: row.decision_feedback, dossier: includeDossier ? dossierView(row) : null
 });
 
+function requireAdmin(req, res, next) {
+  const token = String(req.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  if (!token || !adminSessions.has(token)) return res.status(401).json({ error: 'Admin sign-in required.' });
+  next();
+}
+
 function configResponse(row) {
   return { configured: Boolean(row.atenxion_url && row.atenxion_token && row.public_app_url), atenxionUrl: row.atenxion_url, publicAppUrl: row.public_app_url, updatedAt: row.updated_at };
 }
@@ -116,8 +125,22 @@ async function dispatch(payload) {
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-app.get('/api/config', (_req, res) => res.json(configResponse(configRow())));
-app.put('/api/config', (req, res) => {
+app.post('/api/admin/login', (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const password = String(req.body?.password || '');
+  if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Invalid admin email or password.' });
+  const token = crypto.randomBytes(32).toString('hex');
+  adminSessions.add(token);
+  res.json({ token, admin: { email: ADMIN_EMAIL } });
+});
+app.post('/api/admin/logout', requireAdmin, (req, res) => {
+  const token = String(req.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  adminSessions.delete(token);
+  res.json({ ok: true });
+});
+
+app.get('/api/config', requireAdmin, (_req, res) => res.json(configResponse(configRow())));
+app.put('/api/config', requireAdmin, (req, res) => {
   const { atenxionUrl = '', atenxionToken = '', publicAppUrl = '' } = req.body || {};
   const previous = configRow();
   const normalized = { url: String(atenxionUrl).trim().replace(/\/$/, ''), token: String(atenxionToken).trim() || previous.atenxion_token, host: String(publicAppUrl).trim().replace(/\/$/, '') };
@@ -127,24 +150,25 @@ app.put('/api/config', (req, res) => {
   res.json(configResponse(configRow()));
 });
 
-app.get('/api/jobs', (req, res) => {
+app.get('/api/jobs', (req, res, next) => {
+  if (req.query.includeDrafts === 'true') return requireAdmin(req, res, next);
   const includeDrafts = req.query.includeDrafts === 'true';
   const rows = db.prepare(`SELECT * FROM jobs ${includeDrafts ? '' : "WHERE status = 'published'"} ORDER BY COALESCE(published_at, created_at) DESC`).all();
   res.json(rows.map(jobView));
 });
-app.get('/api/jobs/:jobId', (req, res) => {
+app.get('/api/jobs/:jobId', requireAdmin, (req, res) => {
   const row = db.prepare('SELECT * FROM jobs WHERE id = ?').get(req.params.jobId);
   if (!row) return res.status(404).json({ error: 'Job not found.' });
   res.json(jobView(row));
 });
-app.post('/api/jobs', (req, res) => {
+app.post('/api/jobs', requireAdmin, (req, res) => {
   const { draftTitle, rawSummary } = req.body || {};
   if (!String(draftTitle || '').trim() || !String(rawSummary || '').trim()) return res.status(400).json({ error: 'Role title and role sketch are required.' });
   const jobId = id('job');
   db.prepare('INSERT INTO jobs (id, draft_title, raw_summary) VALUES (?, ?, ?)').run(jobId, String(draftTitle).trim(), String(rawSummary).trim());
   res.status(201).json(jobView(db.prepare('SELECT * FROM jobs WHERE id = ?').get(jobId)));
 });
-app.post('/api/jobs/:jobId/polish', async (req, res) => {
+app.post('/api/jobs/:jobId/polish', requireAdmin, async (req, res) => {
   const row = db.prepare('SELECT * FROM jobs WHERE id = ?').get(req.params.jobId);
   if (!row) return res.status(404).json({ error: 'Job not found.' });
   const eventId = id('job_spec');
@@ -158,7 +182,7 @@ app.post('/api/jobs/:jobId/polish', async (req, res) => {
     res.status(502).json({ error: error.message });
   }
 });
-app.put('/api/jobs/:jobId', (req, res) => {
+app.put('/api/jobs/:jobId', requireAdmin, (req, res) => {
   const row = db.prepare('SELECT * FROM jobs WHERE id = ?').get(req.params.jobId);
   if (!row) return res.status(404).json({ error: 'Job not found.' });
   const { roleTitle, executiveSummary, responsibilities = [], coreQualifications = [], preferredExperience = [] } = req.body || {};
@@ -166,23 +190,23 @@ app.put('/api/jobs/:jobId', (req, res) => {
   db.prepare('UPDATE jobs SET role_title=?, executive_summary=?, responsibilities_json=?, core_qualifications_json=?, preferred_experience_json=? WHERE id=?').run(String(roleTitle).trim(), String(executiveSummary).trim(), JSON.stringify(responsibilities), JSON.stringify(coreQualifications), JSON.stringify(preferredExperience), row.id);
   res.json(jobView(db.prepare('SELECT * FROM jobs WHERE id = ?').get(row.id)));
 });
-app.post('/api/jobs/:jobId/publish', (req, res) => {
+app.post('/api/jobs/:jobId/publish', requireAdmin, (req, res) => {
   const row = db.prepare('SELECT * FROM jobs WHERE id = ?').get(req.params.jobId);
   if (!row || !row.role_title || !row.executive_summary) return res.status(400).json({ error: 'Finish reviewing the polished job before publishing.' });
   db.prepare("UPDATE jobs SET status='published', published_at=COALESCE(published_at, CURRENT_TIMESTAMP) WHERE id=?").run(row.id);
   res.json(jobView(db.prepare('SELECT * FROM jobs WHERE id = ?').get(row.id)));
 });
 
-app.get('/api/jobs/:jobId/applications', (req, res) => {
+app.get('/api/jobs/:jobId/applications', requireAdmin, (req, res) => {
   const rows = db.prepare('SELECT a.*, c.full_name, c.email, j.role_title, j.draft_title FROM applications a JOIN candidates c ON c.id=a.candidate_id JOIN jobs j ON j.id=a.job_id WHERE a.job_id=? ORDER BY a.applied_at DESC').all(req.params.jobId);
   res.json(rows.map(row => applicationView(row, true)));
 });
-app.get('/api/applications/:applicationId', (req, res) => {
+app.get('/api/applications/:applicationId', requireAdmin, (req, res) => {
   const row = db.prepare('SELECT a.*, c.full_name, c.email, j.role_title, j.draft_title FROM applications a JOIN candidates c ON c.id=a.candidate_id JOIN jobs j ON j.id=a.job_id WHERE a.id=?').get(req.params.applicationId);
   if (!row) return res.status(404).json({ error: 'Application not found.' });
   res.json(applicationView(row, true));
 });
-app.patch('/api/applications/:applicationId/decision', (req, res) => {
+app.patch('/api/applications/:applicationId/decision', requireAdmin, (req, res) => {
   const { status, decisionReason = '', decisionFeedback = '' } = req.body || {};
   if (!['pending', 'review', 'selected', 'rejected'].includes(status)) return res.status(400).json({ error: 'Choose a valid pipeline status.' });
   if (['selected', 'rejected'].includes(status) && !String(decisionReason).trim()) return res.status(400).json({ error: 'A decision reason is required for a final decision.' });
