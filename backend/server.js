@@ -265,6 +265,12 @@ app.post('/api/callbacks/candidate-eval', (req, res) => {
   res.json({ received: true });
 });
 
+app.use((error, _req, res, next) => {
+  if (res.headersSent) return next(error);
+  console.error(error);
+  res.status(error.status || 500).json({ error: error.message || 'Request failed.' });
+});
+
 const frontendDist = path.join(rootDir, 'frontend', 'dist');
 if (fs.existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
