@@ -1,335 +1,108 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Atenxion Recruiter OS API",
-    "description": "Talent intelligence and candidate orchestration API for job polishing, resume evaluation, recruiter dossiers, application decisions, and candidate status visibility.",
+    "title": "Atenxion Recruiter OS Callback API",
+    "description": "Inbound callback endpoints for Atenxion job specification polishing and candidate intelligence evaluation.",
     "version": "1.0.0",
-    "contact": {
-      "name": "Atenxion Recruiter OS Support"
-    }
+    "contact": { "name": "Atenxion Recruiter OS Support" }
   },
   "servers": [
-    {
-      "url": "/",
-      "description": "Current Recruiter OS deployment"
-    }
+    { "url": "https://YOUR_PUBLIC_APPLICATION_DOMAIN", "description": "Replace with the public Recruiter OS application domain" }
   ],
   "paths": {
-    "/health": {
-      "get": {
-        "summary": "Health check",
-        "description": "Returns a lightweight unauthenticated health response.",
-        "tags": ["System"],
-        "responses": {
-          "200": {
-            "description": "Service is healthy",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/HealthResponse" },
-                "example": { "ok": true }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/config": {
-      "get": {
-        "summary": "Read engine configuration",
-        "description": "Returns the persisted Atenxion connection status and public application domain. The bearer token is never returned.",
-        "tags": ["Configuration"],
-        "responses": {
-          "200": {
-            "description": "Configuration fetched successfully",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ConfigResponse" },
-                "example": {
-                  "configured": true,
-                  "atenxionUrl": "https://backend.atenxion.ai",
-                  "publicAppUrl": "https://recruiter.example.com",
-                  "updatedAt": "2026-10-08 10:30:00"
+    "/api/callbacks/job-polish": {
+      "post": {
+        "summary": "Receive a polished job specification",
+        "description": "Atenxion calls this endpoint after completing a job_polish task. The event_id must match the job polish event previously dispatched by Recruiter OS.",
+        "operationId": "receiveJobPolishCallback",
+        "tags": ["Callbacks"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/JobPolishCallback" },
+              "example": {
+                "event_id": "job_spec_981a20",
+                "status": "completed",
+                "polishedJob": {
+                  "roleTitle": "Lead Distributed Systems Engineer",
+                  "executiveSummary": "We are seeking a seasoned systems engineer to design, scale, and optimize high-throughput distributed architectures.",
+                  "responsibilities": ["Architect and maintain fault-tolerant event streams with Apache Kafka.", "Implement consensus mechanisms using Raft and low-latency RPC protocols in Go."],
+                  "coreQualifications": ["5+ years engineering backend distributed platforms.", "Deep mastery of Go concurrency primitives and memory profiling."],
+                  "preferredExperience": ["Production-grade deployment of Kubernetes operators.", "Experience with zero-downtime database partition migrations."]
                 }
               }
             }
           }
-        }
-      },
-      "put": {
-        "summary": "Save engine configuration",
-        "description": "Persists the Atenxion agent URL, bearer token, and public application domain. URLs are normalized by trimming whitespace and trailing slashes.",
-        "tags": ["Configuration"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/ConfigRequest" },
-              "example": {
-                "atenxionUrl": "https://backend.atenxion.ai/",
-                "atenxionToken": "bearer-token-value",
-                "publicAppUrl": "https://recruiter.example.com/"
-              }
-            }
-          }
         },
         "responses": {
           "200": {
-            "description": "Configuration saved successfully",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConfigResponse" } } }
+            "description": "Job polish callback stored successfully",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallbackAcceptedResponse" }, "example": { "received": true } } }
           },
-          "400": { "description": "A configured URL does not start with http:// or https://" }
-        }
-      }
-    },
-    "/api/jobs": {
-      "get": {
-        "summary": "List jobs",
-        "description": "Returns published jobs by default. Set includeDrafts=true for the admin workspace list.",
-        "tags": ["Jobs"],
-        "parameters": [
-          { "name": "includeDrafts", "in": "query", "required": false, "schema": { "type": "boolean", "default": false } }
-        ],
-        "responses": {
-          "200": {
-            "description": "Jobs returned",
-            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Job" } } } }
-          }
-        }
-      },
-      "post": {
-        "summary": "Create a draft job",
-        "tags": ["Jobs"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateJobRequest" },
-              "example": {
-                "draftTitle": "Lead Distributed Systems Engineer",
-                "rawSummary": "Need someone who knows Go, Kafka, and Raft consensus. 5+ years experience. Fully remote."
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Draft job created",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Job" } } }
-          },
-          "400": { "description": "draftTitle and rawSummary are required" }
-        }
-      }
-    },
-    "/api/jobs/{jobId}": {
-      "get": {
-        "summary": "Read a job",
-        "tags": ["Jobs"],
-        "parameters": [ { "$ref": "#/components/parameters/JobId" } ],
-        "responses": {
-          "200": { "description": "Job returned", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Job" } } } },
-          "404": { "description": "Job was not found" }
-        }
-      },
-      "put": {
-        "summary": "Save reviewed job content",
-        "description": "Updates the editable polished job specification before it is published.",
-        "tags": ["Jobs"],
-        "parameters": [ { "$ref": "#/components/parameters/JobId" } ],
-        "requestBody": {
-          "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateJobRequest" } } }
-        },
-        "responses": {
-          "200": { "description": "Job content saved", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Job" } } } },
-          "400": { "description": "roleTitle and executiveSummary are required" },
-          "404": { "description": "Job was not found" }
-        }
-      }
-    },
-    "/api/jobs/{jobId}/polish": {
-      "post": {
-        "summary": "Dispatch job polish",
-        "description": "Sends a job_polish task to the configured Atenxion trigger endpoint. The completed result is received asynchronously at /api/callbacks/job-polish.",
-        "tags": ["Jobs"],
-        "parameters": [ { "$ref": "#/components/parameters/JobId" } ],
-        "responses": {
-          "200": {
-            "description": "Job polish dispatched",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DispatchResponse" }, "example": { "dispatched": true, "eventId": "job_spec_981a20" } } }
-          },
-          "404": { "description": "Job was not found" },
-          "502": { "description": "Atenxion dispatch failed or engine configuration is incomplete" }
-        }
-      }
-    },
-    "/api/jobs/{jobId}/publish": {
-      "post": {
-        "summary": "Publish a reviewed job",
-        "description": "Publishes a job after its role title and executive summary have been reviewed. Published jobs appear in the applicant portal.",
-        "tags": ["Jobs"],
-        "parameters": [ { "$ref": "#/components/parameters/JobId" } ],
-        "responses": {
-          "200": { "description": "Job published", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Job" } } } },
-          "400": { "description": "The job is not ready for publishing" }
-        }
-      }
-    },
-    "/api/jobs/{jobId}/applications": {
-      "get": {
-        "summary": "List applications for a job",
-        "description": "Returns the admin candidate board for a role, including stored intelligence dossiers.",
-        "tags": ["Applications"],
-        "parameters": [ { "$ref": "#/components/parameters/JobId" } ],
-        "responses": {
-          "200": { "description": "Applications returned", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Application" } } } } }
-        }
-      }
-    },
-    "/api/applications": {
-      "post": {
-        "summary": "Submit a candidate application",
-        "description": "Stores a PDF or DOCX resume, creates a pending application, and dispatches a resume_eval task to Atenxion. The evaluation result is received asynchronously at /api/callbacks/candidate-eval.",
-        "tags": ["Applications"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": { "$ref": "#/components/schemas/ApplicationRequest" },
-              "encoding": { "resume": { "contentType": "application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document" } }
-            }
-          }
-        },
-        "responses": {
-          "201": { "description": "Application submitted and evaluation dispatched", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Application" } } } },
-          "400": { "description": "Required candidate fields are missing or the resume is invalid" },
-          "404": { "description": "The role is not published" },
-          "409": { "description": "The candidate already applied to this role with this email" },
-          "502": { "description": "Atenxion dispatch failed" }
-        }
-      }
-    },
-    "/api/applications/{applicationId}": {
-      "get": {
-        "summary": "Read an application and dossier",
-        "tags": ["Applications"],
-        "parameters": [ { "$ref": "#/components/parameters/ApplicationId" } ],
-        "responses": {
-          "200": { "description": "Application returned", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Application" } } } },
-          "404": { "description": "Application was not found" }
-        }
-      }
-    },
-    "/api/applications/{applicationId}/decision": {
-      "patch": {
-        "summary": "Set a candidate pipeline decision",
-        "description": "Sets pending, review, selected, or rejected. A decision reason is required for selected and rejected.",
-        "tags": ["Applications"],
-        "parameters": [ { "$ref": "#/components/parameters/ApplicationId" } ],
-        "requestBody": {
-          "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DecisionRequest" }, "example": { "status": "selected", "decisionReason": "Strong systems design match; advancing to technical interview.", "decisionFeedback": "We will contact you with scheduling options." } } }
-        },
-        "responses": {
-          "200": { "description": "Decision saved", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Application" } } } },
-          "400": { "description": "Invalid status or missing final decision reason" },
-          "404": { "description": "Application was not found" }
-        }
-      }
-    },
-    "/api/candidate/applications": {
-      "get": {
-        "summary": "View applications by candidate email",
-        "description": "Returns the candidate's applications. Dossier details remain hidden while the application is pending or under review and are included only after selected or rejected is set.",
-        "tags": ["Candidate Portal"],
-        "parameters": [ { "name": "email", "in": "query", "required": true, "schema": { "type": "string", "format": "email" } } ],
-        "responses": {
-          "200": { "description": "Candidate applications returned", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Application" } } } } },
-          "400": { "description": "Email is required" }
-        }
-      }
-    },
-    "/api/callbacks/job-polish": {
-      "post": {
-        "summary": "Receive a completed job polish callback",
-        "description": "Stores the polished job specification for the matching job polish event and marks the job ready for admin review.",
-        "tags": ["Callbacks"],
-        "requestBody": {
-          "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/JobPolishCallback" } } }
-        },
-        "responses": {
-          "200": { "description": "Callback stored", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallbackResponse" } } } },
-          "400": { "description": "Callback was not completed or polishedJob is missing" },
-          "404": { "description": "event_id does not match a job polish event" }
+          "400": { "description": "The callback is not completed or polishedJob is missing" },
+          "404": { "description": "The event_id does not match a known job polish event" }
         }
       }
     },
     "/api/callbacks/candidate-eval": {
       "post": {
-        "summary": "Receive a completed candidate evaluation callback",
-        "description": "Stores the intelligence dossier for the matching application and keeps its pipeline status pending until an admin reviews it.",
+        "summary": "Receive a candidate intelligence dossier",
+        "description": "Atenxion calls this endpoint after completing a resume_eval task. The event_id must match the candidate evaluation event previously dispatched by Recruiter OS.",
+        "operationId": "receiveCandidateEvaluationCallback",
         "tags": ["Callbacks"],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CandidateEvaluationCallback" } } }
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CandidateEvaluationCallback" },
+              "example": {
+                "event_id": "eval_77a92c30",
+                "status": "completed",
+                "intelligenceDossier": {
+                  "overallScore": 89,
+                  "fitRating": "Strong Fit",
+                  "executiveSummary": "Candidate presents 6 years of focused systems programming in Go, matching the low-latency infrastructure requirements closely.",
+                  "skillsAnalysis": { "verifiedSkills": ["Go", "Kafka", "Docker", "PostgreSQL", "gRPC"], "missingOrUnclearSkills": ["Raft consensus protocol", "Kubernetes Operator SDK"], "adjacentSkills": ["Redis clustering", "Prometheus telemetry"] },
+                  "experienceTrajectory": { "totalRelevantYears": 6, "seniorityTier": "Senior / Lead Track", "tenureStability": "High — average 2.5 years per role" },
+                  "candidateStrengths": ["Proven track record scaling event message pipelines to 250k msgs/sec.", "Strong systems architecture focus."],
+                  "criticalGapsAndRedFlags": ["No direct mention of consensus algorithms in production.", "Limited discussion of incident remediation or on-call leadership."],
+                  "interviewProbeQuestions": ["Can you walk us through a scenario where a Kafka broker partition lost synchronization?", "How have you handled state reconciliation in distributed systems without two-phase commit?"]
+                }
+              }
+            }
+          }
         },
         "responses": {
-          "200": { "description": "Callback stored", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallbackResponse" } } } },
-          "400": { "description": "Callback was not completed or intelligenceDossier is missing" },
-          "404": { "description": "event_id does not match a candidate evaluation event" }
-        }
-      }
-    },
-    "/files/resumes/{filename}": {
-      "get": {
-        "summary": "Download an uploaded resume",
-        "description": "Returns a publicly accessible uploaded PDF or DOCX resume attachment.",
-        "tags": ["Attachments"],
-        "parameters": [ { "$ref": "#/components/parameters/ResumeFilename" } ],
-        "responses": {
-          "200": { "description": "Resume file", "content": { "application/pdf": {}, "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {} } },
-          "404": { "description": "Resume file was not found" }
+          "200": {
+            "description": "Candidate evaluation callback stored successfully",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CallbackAcceptedResponse" }, "example": { "received": true } } }
+          },
+          "400": { "description": "The callback is not completed or intelligenceDossier is missing" },
+          "404": { "description": "The event_id does not match a known candidate evaluation event" }
         }
       }
     }
   },
   "components": {
-    "parameters": {
-      "JobId": { "name": "jobId", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^job_[a-f0-9]+$" } },
-      "ApplicationId": { "name": "applicationId", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^app_[a-f0-9]+$" } },
-      "ResumeFilename": { "name": "filename", "in": "path", "required": true, "schema": { "type": "string", "pattern": "^[a-f0-9-]+\\.(pdf|docx)$" } }
-    },
     "schemas": {
-      "HealthResponse": { "type": "object", "required": ["ok"], "properties": { "ok": { "type": "boolean", "example": true } } },
-      "ConfigRequest": {
+      "CallbackAcceptedResponse": {
         "type": "object",
+        "required": ["received"],
+        "properties": { "received": { "type": "boolean", "example": true } }
+      },
+      "JobPolishCallback": {
+        "type": "object",
+        "required": ["event_id", "status", "polishedJob"],
         "properties": {
-          "atenxionUrl": { "type": "string", "format": "uri", "description": "Atenxion agent API base URL." },
-          "atenxionToken": { "type": "string", "writeOnly": true, "description": "Bearer token used for Atenxion dispatch." },
-          "publicAppUrl": { "type": "string", "format": "uri", "description": "Public application domain used in callback and resume URLs." }
+          "event_id": { "type": "string", "description": "The event_id from the original job_polish dispatch.", "example": "job_spec_981a20" },
+          "status": { "type": "string", "enum": ["completed"], "example": "completed" },
+          "polishedJob": { "$ref": "#/components/schemas/PolishedJob" }
         }
       },
-      "ConfigResponse": {
+      "PolishedJob": {
         "type": "object",
-        "required": ["configured", "atenxionUrl", "publicAppUrl"],
-        "properties": {
-          "configured": { "type": "boolean" },
-          "atenxionUrl": { "type": "string" },
-          "publicAppUrl": { "type": "string" },
-          "updatedAt": { "type": "string", "nullable": true }
-        }
-      },
-      "CreateJobRequest": {
-        "type": "object",
-        "required": ["draftTitle", "rawSummary"],
-        "properties": {
-          "draftTitle": { "type": "string", "minLength": 1 },
-          "rawSummary": { "type": "string", "minLength": 1 }
-        }
-      },
-      "UpdateJobRequest": {
-        "type": "object",
-        "required": ["roleTitle", "executiveSummary"],
+        "required": ["roleTitle", "executiveSummary", "responsibilities", "coreQualifications", "preferredExperience"],
         "properties": {
           "roleTitle": { "type": "string" },
           "executiveSummary": { "type": "string" },
@@ -338,71 +111,18 @@
           "preferredExperience": { "type": "array", "items": { "type": "string" } }
         }
       },
-      "Job": {
+      "CandidateEvaluationCallback": {
         "type": "object",
-        "required": ["id", "draftTitle", "rawSummary", "status", "createdAt"],
+        "required": ["event_id", "status", "intelligenceDossier"],
         "properties": {
-          "id": { "type": "string", "example": "job_981a20" },
-          "draftTitle": { "type": "string" },
-          "rawSummary": { "type": "string" },
-          "roleTitle": { "type": "string", "nullable": true },
-          "executiveSummary": { "type": "string", "nullable": true },
-          "responsibilities": { "type": "array", "items": { "type": "string" } },
-          "coreQualifications": { "type": "array", "items": { "type": "string" } },
-          "preferredExperience": { "type": "array", "items": { "type": "string" } },
-          "status": { "type": "string", "enum": ["draft", "polishing", "ready_for_review", "published"] },
-          "polishEventId": { "type": "string", "nullable": true },
-          "createdAt": { "type": "string" },
-          "publishedAt": { "type": "string", "nullable": true }
-        }
-      },
-      "DispatchResponse": {
-        "type": "object",
-        "required": ["dispatched", "eventId"],
-        "properties": { "dispatched": { "type": "boolean" }, "eventId": { "type": "string" } }
-      },
-      "ApplicationRequest": {
-        "type": "object",
-        "required": ["jobId", "fullName", "email", "resume"],
-        "properties": {
-          "jobId": { "type": "string" },
-          "fullName": { "type": "string" },
-          "email": { "type": "string", "format": "email" },
-          "resume": { "type": "string", "format": "binary", "description": "PDF or DOCX file, maximum 10 MB." }
-        }
-      },
-      "DecisionRequest": {
-        "type": "object",
-        "required": ["status"],
-        "properties": {
-          "status": { "type": "string", "enum": ["pending", "review", "selected", "rejected"] },
-          "decisionReason": { "type": "string", "description": "Required when status is selected or rejected." },
-          "decisionFeedback": { "type": "string" }
-        }
-      },
-      "Application": {
-        "type": "object",
-        "required": ["id", "jobId", "jobTitle", "candidateId", "candidateName", "candidateEmail", "status", "appliedAt"],
-        "properties": {
-          "id": { "type": "string", "example": "app_77a92c30" },
-          "jobId": { "type": "string" },
-          "jobTitle": { "type": "string" },
-          "candidateId": { "type": "string" },
-          "candidateName": { "type": "string" },
-          "candidateEmail": { "type": "string", "format": "email" },
-          "resumeOriginalName": { "type": "string" },
-          "resumeUrl": { "type": "string" },
-          "status": { "type": "string", "enum": ["pending", "review", "selected", "rejected"] },
-          "appliedAt": { "type": "string" },
-          "updatedAt": { "type": "string" },
-          "decisionReason": { "type": "string" },
-          "decisionFeedback": { "type": "string" },
-          "dossier": { "$ref": "#/components/schemas/IntelligenceDossier", "nullable": true }
+          "event_id": { "type": "string", "description": "The event_id from the original resume_eval dispatch.", "example": "eval_77a92c30" },
+          "status": { "type": "string", "enum": ["completed"], "example": "completed" },
+          "intelligenceDossier": { "$ref": "#/components/schemas/IntelligenceDossier" }
         }
       },
       "IntelligenceDossier": {
         "type": "object",
-        "additionalProperties": true,
+        "required": ["overallScore", "fitRating", "executiveSummary", "skillsAnalysis", "experienceTrajectory", "candidateStrengths", "criticalGapsAndRedFlags", "interviewProbeQuestions"],
         "properties": {
           "overallScore": { "type": "integer", "minimum": 0, "maximum": 100 },
           "fitRating": { "type": "string" },
@@ -416,6 +136,7 @@
       },
       "SkillsAnalysis": {
         "type": "object",
+        "required": ["verifiedSkills", "missingOrUnclearSkills", "adjacentSkills"],
         "properties": {
           "verifiedSkills": { "type": "array", "items": { "type": "string" } },
           "missingOrUnclearSkills": { "type": "array", "items": { "type": "string" } },
@@ -424,54 +145,16 @@
       },
       "ExperienceTrajectory": {
         "type": "object",
+        "required": ["totalRelevantYears", "seniorityTier", "tenureStability"],
         "properties": {
           "totalRelevantYears": { "type": "number" },
           "seniorityTier": { "type": "string" },
           "tenureStability": { "type": "string" }
         }
-      },
-      "JobPolishCallback": {
-        "type": "object",
-        "required": ["event_id", "status", "polishedJob"],
-        "properties": {
-          "event_id": { "type": "string" },
-          "status": { "type": "string", "example": "completed" },
-          "polishedJob": {
-            "type": "object",
-            "required": ["roleTitle", "executiveSummary"],
-            "properties": {
-              "roleTitle": { "type": "string" },
-              "executiveSummary": { "type": "string" },
-              "responsibilities": { "type": "array", "items": { "type": "string" } },
-              "coreQualifications": { "type": "array", "items": { "type": "string" } },
-              "preferredExperience": { "type": "array", "items": { "type": "string" } }
-            }
-          }
-        }
-      },
-      "CandidateEvaluationCallback": {
-        "type": "object",
-        "required": ["event_id", "status", "intelligenceDossier"],
-        "properties": {
-          "event_id": { "type": "string" },
-          "status": { "type": "string", "example": "completed" },
-          "intelligenceDossier": { "$ref": "#/components/schemas/IntelligenceDossier" }
-        }
-      },
-      "CallbackResponse": {
-        "type": "object",
-        "required": ["received"],
-        "properties": { "received": { "type": "boolean", "example": true } }
       }
     }
   },
   "tags": [
-    { "name": "System", "description": "Service health endpoints." },
-    { "name": "Configuration", "description": "Persisted Atenxion engine settings." },
-    { "name": "Jobs", "description": "Job drafting, polishing, review, and publishing." },
-    { "name": "Applications", "description": "Candidate applications, dossiers, and decisions." },
-    { "name": "Candidate Portal", "description": "Candidate application status and gated results." },
-    { "name": "Callbacks", "description": "Asynchronous Atenxion result callbacks." },
-    { "name": "Attachments", "description": "Public resume attachments." }
+    { "name": "Callbacks", "description": "Asynchronous Atenxion result callbacks." }
   ]
 }
