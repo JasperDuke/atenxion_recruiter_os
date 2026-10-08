@@ -13,6 +13,16 @@
 .tracker-panel form{display:flex;gap:7px}
 .tracker-panel input{margin:0;min-width:0}
 .tracker-panel .primary{flex:none}
+.tracker-only{min-height:calc(100vh - 76px);padding-top:34px}
+.tracker-back{margin-bottom:46px}
+.tracker-shell{width:min(560px,100%);margin:0 auto}
+.tracker-shell h1{font-size:36px;line-height:1.1;letter-spacing:-.04em;margin:11px 0 8px}
+.tracker-shell>.muted{max-width:480px}
+.tracker-focus{margin-top:28px;padding:24px}
+.tracker-focus form{margin-top:20px}
+.tracker-focus .primary{width:100%}
+.tracker-focus .notice{margin-top:14px;margin-bottom:0}
+.tracker-only .status-card{margin-top:14px}
 .login-modal{max-width:440px}
 .login-modal .modal-head{padding-bottom:20px}
 .login-modal form{padding-top:20px}
