@@ -11,7 +11,7 @@ const formatDate = value => value ? new Date(value.replace(' ', 'T') + (value.in
 function App() {
   const [mode, setMode] = useState('candidate'); const [config, setConfig] = useState(null); const [configOpen, setConfigOpen] = useState(false); const [loginOpen, setLoginOpen] = useState(false); const [adminToken, setAdminToken] = useState(() => localStorage.getItem('recruiter_admin_token'));
   useEffect(() => { document.title = mode === 'admin' ? 'Command Center · Atenxion Recruiter OS' : 'Atenxion Recruiter OS · Applicant Portal'; }, [mode]);
-  const openCommandCenter = () => adminToken ? setMode('admin') : setLoginOpen(true);
+  const openCommandCenter = () => { if (!adminToken) return setLoginOpen(true); setMode('admin'); api('/api/config').then(setConfig).catch(() => setConfig({ configured: false })); };
   const signIn = value => { localStorage.setItem('recruiter_admin_token', value.token); setAdminToken(value.token); setMode('admin'); setLoginOpen(false); api('/api/config').then(setConfig); };
   const signOut = async () => { try { await api('/api/admin/logout', { method: 'POST' }); } catch {} localStorage.removeItem('recruiter_admin_token'); setAdminToken(null); setConfig(null); setMode('candidate'); };
   return <div className="shell"><Header mode={mode} setMode={setMode} config={config} adminToken={adminToken} onCommandCenter={openCommandCenter} onConfig={() => setConfigOpen(true)} onLogout={signOut} />

@@ -150,8 +150,13 @@ app.put('/api/config', requireAdmin, (req, res) => {
   res.json(configResponse(configRow()));
 });
 
-app.get('/api/jobs', (req, res, next) => {
-  if (req.query.includeDrafts === 'true') return requireAdmin(req, res, next);
+app.get('/api/jobs', (req, res) => {
+  const listJobs = () => {
+    const includeDrafts = req.query.includeDrafts === 'true';
+    const rows = db.prepare(`SELECT * FROM jobs ${includeDrafts ? '' : "WHERE status = 'published'"} ORDER BY COALESCE(published_at, created_at) DESC`).all();
+    res.json(rows.map(jobView));
+  };
+  if (req.query.includeDrafts === 'true') return requireAdmin(req, res, listJobs);
   const includeDrafts = req.query.includeDrafts === 'true';
   const rows = db.prepare(`SELECT * FROM jobs ${includeDrafts ? '' : "WHERE status = 'published'"} ORDER BY COALESCE(published_at, created_at) DESC`).all();
   res.json(rows.map(jobView));
