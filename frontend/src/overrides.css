@@ -19,8 +19,10 @@
 .tracker-shell h1{font-size:36px;line-height:1.1;letter-spacing:-.04em;margin:11px 0 8px}
 .tracker-shell>.muted{max-width:480px}
 .tracker-focus{margin-top:28px;padding:24px}
-.tracker-focus form{margin-top:20px}
-.tracker-focus .primary{width:100%}
+.tracker-focus form{display:block;margin-top:20px}
+.tracker-focus label{margin-bottom:14px}
+.tracker-focus input{width:100%;margin-top:7px}
+.tracker-focus .primary{width:auto;min-width:0;padding:11px 16px}
 .tracker-focus .notice{margin-top:14px;margin-bottom:0}
 .tracker-only .status-card{margin-top:14px}
 .login-modal{max-width:440px}
