@@ -1,0 +1,75 @@
+# Local tooling
+AGENTS.md
+.codex-home/
+
+# Dependencies
+node_modules/
+.npm/
+.npm-cache/
+bower_components/
+jspm_packages/
+.pnp
+.pnp.js
+vendor/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.tox/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Build / cache
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+.turbo/
+.cache/
+.parcel-cache/
+.vite/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# JVM / native / Rust
+target/
+*.class
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+*.wasm
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Keep .env in the repo / zip. Do not add .env here.
+
+# SQLite for this project (created at data/app.sqlite)
+data/*.sqlite
+data/*.db
+data/*.sqlite-*
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
